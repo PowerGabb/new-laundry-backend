@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BranchController;
+use App\Http\Controllers\OrderController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -21,4 +22,5 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     Route::apiResource('branches', BranchController::class);
+    Route::apiResource('orders', OrderController::class)->only(['index', 'store', 'show']);
 });
