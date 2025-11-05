@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\CourierRateRequest;
 use App\Http\Requests\NearbyBranchRequest;
 use App\Http\Requests\StoreBranchRequest;
 use App\Http\Requests\UpdateBranchRequest;
 use App\Http\Resources\BranchResource;
 use App\Models\Branch;
+use App\Services\BitshipService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\DB;
@@ -151,6 +153,73 @@ class BranchController extends Controller
                 'total' => $branches->count(),
             ],
             'data' => BranchResource::collection($branches),
+        ]);
+    }
+
+    /**
+     * Get courier rates (Gojek & Grab) from branch to destination.
+     */
+    public function courierRates(CourierRateRequest $request, BitshipService $bitshipService): JsonResponse
+    {
+        $branch = Branch::query()->findOrFail($request->branch_id);
+
+        if (! $branch->latitude || ! $branch->longitude) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cabang ini tidak memiliki koordinat lokasi',
+            ], 400);
+        }
+
+        // Determine origin and destination based on type
+        // pickup = user -> laundry (user location is origin)
+        // delivery = laundry -> user (laundry location is origin)
+        if ($request->type === 'pickup') {
+            $originLatitude = $request->destination_latitude;
+            $originLongitude = $request->destination_longitude;
+            $destinationLatitude = $branch->latitude;
+            $destinationLongitude = $branch->longitude;
+        } else {
+            $originLatitude = $branch->latitude;
+            $originLongitude = $branch->longitude;
+            $destinationLatitude = $request->destination_latitude;
+            $destinationLongitude = $request->destination_longitude;
+        }
+
+        $result = $bitshipService->getCourierRates([
+            'origin_latitude' => $originLatitude,
+            'origin_longitude' => $originLongitude,
+            'destination_latitude' => $destinationLatitude,
+            'destination_longitude' => $destinationLongitude,
+            'couriers' => 'gojek,grab',
+            'weight' => $request->weight ?? 1000,
+            'value' => $request->value ?? 50000,
+        ]);
+
+        if (! $result['success']) {
+            return response()->json([
+                'success' => false,
+                'message' => $result['message'],
+                'error' => $result['error'] ?? null,
+            ], 500);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Tarif kurir berhasil didapatkan',
+            'data' => [
+                'branch' => new BranchResource($branch),
+                'type' => $request->type,
+                'type_description' => $request->type === 'pickup' ? 'Antar cucian ke laundry' : 'Antar cucian ke customer',
+                'origin' => [
+                    'latitude' => $originLatitude,
+                    'longitude' => $originLongitude,
+                ],
+                'destination' => [
+                    'latitude' => $destinationLatitude,
+                    'longitude' => $destinationLongitude,
+                ],
+                'rates' => $result['data'],
+            ],
         ]);
     }
 }

@@ -10,6 +10,7 @@ Route::post('/login', [AuthController::class, 'login']);
 
 // Public routes
 Route::get('/branches/nearby', [BranchController::class, 'nearby']);
+Route::post('/branches/courier-rates', [BranchController::class, 'courierRates']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
