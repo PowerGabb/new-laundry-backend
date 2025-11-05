@@ -79,4 +79,96 @@ class BitshipService
             ];
         }
     }
+
+    /**
+     * Track order by waybill ID from Biteship API.
+     *
+     * @return array<string, mixed>
+     */
+    public function trackOrder(string $waybillId): array
+    {
+        try {
+            $response = Http::withHeaders([
+                'Authorization' => $this->apiKey,
+            ])->get("{$this->baseUrl}/trackings/{$waybillId}");
+
+            if ($response->successful()) {
+                return [
+                    'success' => true,
+                    'data' => $response->json(),
+                ];
+            }
+
+            Log::error('Biteship Tracking API Error', [
+                'waybill_id' => $waybillId,
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
+
+            return [
+                'success' => false,
+                'message' => 'Gagal melacak pengiriman',
+                'error' => $response->json(),
+            ];
+        } catch (\Exception $e) {
+            Log::error('Biteship Tracking Exception', [
+                'waybill_id' => $waybillId,
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return [
+                'success' => false,
+                'message' => 'Terjadi kesalahan saat melacak pengiriman',
+                'error' => $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * Track order by courier waybill ID from Biteship API.
+     *
+     * @return array<string, mixed>
+     */
+    public function trackOrderByCourier(string $courierWaybillId, string $courier): array
+    {
+        try {
+            $response = Http::withHeaders([
+                'Authorization' => $this->apiKey,
+            ])->get("{$this->baseUrl}/trackings/{$courierWaybillId}/couriers/{$courier}");
+
+            if ($response->successful()) {
+                return [
+                    'success' => true,
+                    'data' => $response->json(),
+                ];
+            }
+
+            Log::error('Biteship Courier Tracking API Error', [
+                'courier_waybill_id' => $courierWaybillId,
+                'courier' => $courier,
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
+
+            return [
+                'success' => false,
+                'message' => 'Gagal melacak pengiriman',
+                'error' => $response->json(),
+            ];
+        } catch (\Exception $e) {
+            Log::error('Biteship Courier Tracking Exception', [
+                'courier_waybill_id' => $courierWaybillId,
+                'courier' => $courier,
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return [
+                'success' => false,
+                'message' => 'Terjadi kesalahan saat melacak pengiriman',
+                'error' => $e->getMessage(),
+            ];
+        }
+    }
 }

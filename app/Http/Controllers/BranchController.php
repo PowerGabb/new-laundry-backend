@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\CourierRateRequest;
 use App\Http\Requests\NearbyBranchRequest;
+use App\Http\Requests\OrderTrackingRequest;
 use App\Http\Requests\StoreBranchRequest;
 use App\Http\Requests\UpdateBranchRequest;
 use App\Http\Resources\BranchResource;
@@ -220,6 +221,59 @@ class BranchController extends Controller
                 ],
                 'rates' => $result['data'],
             ],
+        ]);
+    }
+
+    public function getAvailableCouriers(): JsonResponse
+    {
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'couriers' => [
+                    [
+                        'code' => 'gojek',
+                        'name' => 'Gojek',
+                    ],
+                    [
+                        'code' => 'grab',
+                        'name' => 'Grab',
+                    ],
+                ],
+            ],
+        ]);
+    }
+
+    /**
+     * Track order by waybill ID or courier waybill ID.
+     */
+    public function trackOrder(OrderTrackingRequest $request, BitshipService $bitshipService): JsonResponse
+    {
+        // Track by Biteship waybill_id
+        if ($request->filled('waybill_id')) {
+            $result = $bitshipService->trackOrder($request->waybill_id);
+        }
+        // Track by courier waybill_id and courier
+        elseif ($request->filled('courier_waybill_id') && $request->filled('courier')) {
+            $result = $bitshipService->trackOrderByCourier($request->courier_waybill_id, $request->courier);
+        } else {
+            return response()->json([
+                'success' => false,
+                'message' => 'Waybill ID atau Courier Waybill ID wajib diisi',
+            ], 400);
+        }
+
+        if (! $result['success']) {
+            return response()->json([
+                'success' => false,
+                'message' => $result['message'],
+                'error' => $result['error'] ?? null,
+            ], 500);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Tracking berhasil didapatkan',
+            'data' => $result['data'],
         ]);
     }
 }
