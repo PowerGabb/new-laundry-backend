@@ -12,6 +12,7 @@ Route::post('/login', [AuthController::class, 'login']);
 
 // Public routes
 Route::get('/branches/nearby', [BranchController::class, 'nearby']);
+Route::get('/branches/all', [BranchController::class, 'all']);
 Route::post('/branches/courier-rates', [BranchController::class, 'courierRates']);
 Route::get('/branches/available-couriers', [BranchController::class, 'getAvailableCouriers']);
 Route::post('/orders/track', [BranchController::class, 'trackOrder']);

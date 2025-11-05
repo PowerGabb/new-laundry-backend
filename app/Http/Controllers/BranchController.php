@@ -30,6 +30,19 @@ class BranchController extends Controller
         return BranchResource::collection($branches);
     }
 
+    public function all(): JsonResponse
+    {
+        $branches = Branch::query()
+            ->with('user')
+            ->latest()
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => BranchResource::collection($branches),
+        ]);
+    }
+
     /**
      * Store a newly created branch.
      */
