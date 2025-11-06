@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\BannerController;
 use App\Http\Controllers\BranchController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\PaymentController;
@@ -17,6 +18,9 @@ Route::post('/branches/courier-rates', [BranchController::class, 'courierRates']
 Route::get('/branches/available-couriers', [BranchController::class, 'getAvailableCouriers']);
 Route::post('/orders/track', [BranchController::class, 'trackOrder']);
 
+// Banners (public - for mobile app)
+Route::get('/banners', [BannerController::class, 'index']);
+
 // Midtrans notification webhook (public, no auth)
 Route::post('/payments/notification', [PaymentController::class, 'notification']);
 
@@ -29,6 +33,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('branches', BranchController::class);
     Route::apiResource('orders', OrderController::class)->only(['index', 'store', 'show']);
     Route::post('/orders/{order}/choose-delivery-payment', [OrderController::class, 'chooseDeliveryAndPayment']);
+
+    // Banners (admin only)
+    Route::get('/banners/all', [BannerController::class, 'all']);
+    Route::apiResource('banners', BannerController::class)->except(['index']);
 
     // Payment routes
     Route::post('/payments/pay/{order}', [PaymentController::class, 'pay']);
