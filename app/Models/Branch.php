@@ -63,4 +63,23 @@ class Branch extends Model
     {
         return $this->hasMany(Order::class);
     }
+
+    /**
+     * Get the laundry categories for the branch.
+     */
+    public function laundryCategories(): HasMany
+    {
+        return $this->hasMany(LaundryCategory::class);
+    }
+
+    /**
+     * Get only active categories with active items.
+     */
+    public function activeCategoriesWithItems(): HasMany
+    {
+        return $this->laundryCategories()
+            ->where('is_active', true)
+            ->with('activeItems')
+            ->orderBy('sort_order');
+    }
 }

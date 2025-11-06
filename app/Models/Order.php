@@ -30,6 +30,8 @@ class Order extends Model
         'actual_weight',
         'price_per_kg',
         'items_detail',
+        'actual_weight_items',
+        'actual_total_amount',
         'special_instructions',
         'notes',
         'customer_latitude',
@@ -98,6 +100,8 @@ class Order extends Model
         'delivery_staff_id',
         'photo_before',
         'photo_after',
+        'proof_video_url',
+        'actual_weight_recorded_at',
     ];
 
     /**
@@ -109,6 +113,7 @@ class Order extends Model
     {
         return [
             'total_amount' => 'integer',
+            'actual_total_amount' => 'integer',
             'subtotal' => 'integer',
             'delivery_fee' => 'integer',
             'discount_amount' => 'integer',
@@ -117,6 +122,7 @@ class Order extends Model
             'actual_weight' => 'integer',
             'price_per_kg' => 'integer',
             'items_detail' => 'array',
+            'actual_weight_items' => 'array',
             'customer_latitude' => 'decimal:8',
             'customer_longitude' => 'decimal:8',
             'pickup_scheduled_at' => 'datetime',
@@ -125,6 +131,7 @@ class Order extends Model
             'delivery_actual_at' => 'datetime',
             'processing_started_at' => 'datetime',
             'processing_completed_at' => 'datetime',
+            'actual_weight_recorded_at' => 'datetime',
             'pickup_courier_rate' => 'integer',
             'pickup_shipping_fee' => 'integer',
             'pickup_shipping_fee_discount' => 'integer',

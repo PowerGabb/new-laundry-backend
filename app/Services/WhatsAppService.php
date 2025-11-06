@@ -143,4 +143,51 @@ class WhatsAppService
 
         return $this->sendMessage($order->branch->phone, $message);
     }
+
+    /**
+     * Send notification to customer about actual weight update
+     */
+    public function notifyCustomerActualWeightUpdate(object $order): bool
+    {
+        $message = "*Update Berat Aktual* ⚖️\n\n";
+        $message .= "Halo *{$order->customer_name}*,\n\n";
+        $message .= "📦 Order: *{$order->order_number}*\n";
+        $message .= "📍 Cabang: *{$order->branch->name}*\n\n";
+
+        $message .= "Cucian Anda sudah ditimbang dengan hasil:\n\n";
+
+        // Show items if available
+        if ($order->actual_weight_items && is_array($order->actual_weight_items)) {
+            $message .= "*Items Aktual:*\n";
+            foreach ($order->actual_weight_items as $item) {
+                $itemName = $item['item_name'] ?? '-';
+                $quantity = $item['quantity'] ?? 0;
+                $unit = $item['unit'] ?? 'kg';
+                $subtotal = $item['subtotal'] ?? 0;
+                $message .= "• {$itemName}: {$quantity} {$unit} - Rp ".number_format($subtotal, 0, ',', '.')."\n";
+            }
+            $message .= "\n";
+        }
+
+        // Show total comparison
+        if ($order->actual_total_amount) {
+            $message .= '💰 *Total Estimasi:* Rp '.number_format($order->subtotal ?? 0, 0, ',', '.')."\n";
+            $message .= '💰 *Total Aktual:* Rp '.number_format($order->actual_total_amount, 0, ',', '.')."\n\n";
+
+            $difference = $order->actual_total_amount - ($order->subtotal ?? 0);
+            if ($difference > 0) {
+                $message .= '📈 Selisih: +Rp '.number_format($difference, 0, ',', '.')."\n\n";
+            } elseif ($difference < 0) {
+                $message .= '📉 Selisih: -Rp '.number_format(abs($difference), 0, ',', '.')."\n\n";
+            }
+        }
+
+        if ($order->proof_video_url) {
+            $message .= "📹 Video bukti penimbangan tersedia di aplikasi.\n\n";
+        }
+
+        $message .= 'Terima kasih atas kepercayaan Anda! 🙏';
+
+        return $this->sendMessage($order->customer_phone, $message);
+    }
 }

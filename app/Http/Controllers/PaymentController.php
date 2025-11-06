@@ -41,11 +41,17 @@ class PaymentController extends Controller
         // Load branch and user data
         $order->load(['branch', 'user']);
 
+        // Use actual total amount if available, otherwise use original total
+        $totalAmount = $order->actual_total_amount ?? $order->total_amount;
+        $subtotal = $order->actual_total_amount
+            ? ($order->actual_total_amount - ($order->delivery_fee ?? 0))
+            : $order->subtotal;
+
         // Prepare transaction details for Midtrans
         $params = [
             'transaction_details' => [
                 'order_id' => $order->order_number,
-                'gross_amount' => $order->total_amount,
+                'gross_amount' => $totalAmount,
             ],
             'customer_details' => [
                 'first_name' => $order->customer_name ?? $order->user->name,
@@ -55,9 +61,10 @@ class PaymentController extends Controller
             'item_details' => [
                 [
                     'id' => 'laundry-service',
-                    'price' => $order->subtotal,
+                    'price' => $subtotal,
                     'quantity' => 1,
-                    'name' => "Laundry Service - {$order->branch->name}",
+                    'name' => "Laundry Service - {$order->branch->name}".
+                        ($order->actual_total_amount ? ' (Harga Aktual Setelah Penimbangan)' : ''),
                 ],
             ],
         ];
@@ -106,7 +113,8 @@ class PaymentController extends Controller
             'data' => [
                 'snaptoken' => $result['snap_token'],
                 'order_number' => $order->order_number,
-                'total_amount' => $order->total_amount,
+                'total_amount' => $totalAmount,
+                'is_actual_price' => $order->actual_total_amount ? true : false,
             ],
         ]);
     }
@@ -118,7 +126,7 @@ class PaymentController extends Controller
     {
         try {
             // Create notification object
-            $notification = new \Midtrans\Notification();
+            $notification = new \Midtrans\Notification;
 
             $transactionStatus = $notification->transaction_status;
             $fraudStatus = $notification->fraud_status;
@@ -211,7 +219,8 @@ class PaymentController extends Controller
                 'order' => [
                     'order_number' => $order->order_number,
                     'payment_status' => $order->payment_status,
-                    'total_amount' => $order->total_amount,
+                    'total_amount' => $order->actual_total_amount ?? $order->total_amount,
+                    'is_actual_price' => $order->actual_total_amount ? true : false,
                 ],
                 'midtrans' => $result['data'],
             ],

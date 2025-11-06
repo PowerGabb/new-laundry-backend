@@ -31,6 +31,10 @@ class OrderResource extends JsonResource
             // Items info
             'estimated_weight' => $this->estimated_weight,
             'actual_weight' => $this->actual_weight,
+            'actual_weight_items' => $this->actual_weight_items,
+            'actual_total_amount' => $this->actual_total_amount,
+            'proof_video_url' => $this->proof_video_url,
+            'actual_weight_recorded_at' => $this->actual_weight_recorded_at?->toIso8601String(),
             'price_per_kg' => $this->price_per_kg,
             'items_detail' => $this->items_detail,
             'special_instructions' => $this->special_instructions,

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreOrderRequest;
+use App\Http\Requests\UpdateActualWeightRequest;
 use App\Http\Requests\UpdateOrderStatusRequest;
 use App\Http\Resources\OrderResource;
 use App\Models\Branch;
@@ -49,9 +50,20 @@ class OrderController extends Controller
             $isPickupFree = $request->pickup_method === 'free_pickup';
             $isPickupCourier = in_array($request->pickup_method, ['gojek', 'grab']);
 
-            // Calculate pricing
-            $pricePerKg = $branch->price_per_kg;
-            $subtotal = $request->estimated_weight * $pricePerKg;
+            // Calculate pricing based on items_detail if provided
+            if ($request->has('items_detail') && is_array($request->items_detail) && count($request->items_detail) > 0) {
+                // Item-based pricing (NEW system)
+                $subtotal = 0;
+                foreach ($request->items_detail as $item) {
+                    $subtotal += $item['subtotal'] ?? 0;
+                }
+                $pricePerKg = 0; // Not used in item-based
+            } else {
+                // Legacy weight-based pricing (fallback for old orders)
+                $pricePerKg = $branch->price_per_kg;
+                $subtotal = $request->estimated_weight * $pricePerKg;
+            }
+
             $pickupShippingFee = $isPickupFree ? 0 : ($request->shipping_fee ?? 0);
             $totalAmount = $subtotal + $pickupShippingFee;
 
@@ -71,7 +83,8 @@ class OrderController extends Controller
                 'price_per_kg' => $pricePerKg,
 
                 // Items
-                'estimated_weight' => $request->estimated_weight,
+                'estimated_weight' => $request->estimated_weight ?? 0,
+                'items_detail' => $request->items_detail, // Store selected items
                 'notes' => $request->notes,
                 'special_instructions' => $request->special_instructions,
 
@@ -396,5 +409,74 @@ class OrderController extends Controller
                 'recent_orders' => OrderResource::collection($recentOrders),
             ],
         ]);
+    }
+
+    /**
+     * Update actual weight and items with video proof (admin only)
+     */
+    public function updateActualWeight(UpdateActualWeightRequest $request, Order $order): JsonResponse
+    {
+        // Get the branch owner's branch
+        $userBranch = auth()->user()->branches()->first();
+
+        // Check if user owns a branch
+        if (! $userBranch) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Anda tidak memiliki cabang',
+            ], 403);
+        }
+
+        // Check if order belongs to this branch
+        if ($order->branch_id !== $userBranch->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Order tidak ditemukan di cabang Anda',
+            ], 403);
+        }
+
+        try {
+            DB::beginTransaction();
+
+            // Calculate actual total from items
+            $actualTotalAmount = 0;
+            foreach ($request->actual_weight_items as $item) {
+                $actualTotalAmount += $item['subtotal'] ?? 0;
+            }
+
+            // Add delivery fee if exists
+            $actualTotalAmount += $order->delivery_fee ?? 0;
+
+            // Update order with actual weight data
+            $order->update([
+                'actual_weight_items' => $request->actual_weight_items,
+                'actual_total_amount' => $actualTotalAmount,
+                'actual_weight' => $request->actual_weight,
+                'proof_video_url' => $request->proof_video_url,
+                'actual_weight_recorded_at' => now(),
+                'notes' => $request->notes ?? $order->notes,
+            ]);
+
+            DB::commit();
+
+            // Send WhatsApp notification to customer about actual weight update
+            $order->load(['branch', 'user']);
+            $this->whatsAppService->notifyCustomerActualWeightUpdate($order);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Berat actual berhasil diperbarui',
+                'data' => new OrderResource($order->fresh()),
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal memperbarui berat actual',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
     }
 }
