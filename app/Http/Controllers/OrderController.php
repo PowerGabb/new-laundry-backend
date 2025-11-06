@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreOrderRequest;
+use App\Http\Requests\UpdateOrderStatusRequest;
 use App\Http\Resources\OrderResource;
 use App\Models\Branch;
 use App\Models\Order;
@@ -263,6 +264,125 @@ class OrderController extends Controller
                 'total_orders' => $totalOrders,
                 'completed_orders' => $completedOrders,
                 'active_orders' => $activeOrders,
+            ],
+        ]);
+    }
+
+    /**
+     * Update order status (admin only)
+     */
+    public function updateStatus(UpdateOrderStatusRequest $request, Order $order): JsonResponse
+    {
+        // Get the branch owner's branch
+        $userBranch = auth()->user()->branches()->first();
+
+        // Check if user owns a branch
+        if (! $userBranch) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Anda tidak memiliki cabang',
+            ], 403);
+        }
+
+        // Check if order belongs to this branch
+        if ($order->branch_id !== $userBranch->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Order tidak ditemukan di cabang Anda',
+            ], 403);
+        }
+
+        // Update order status
+        $order->update([
+            'order_status' => $request->order_status,
+        ]);
+
+        // Add notes to order if provided
+        if ($request->notes) {
+            $order->update([
+                'notes' => $request->notes,
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Status order berhasil diupdate',
+            'data' => new OrderResource($order->load(['branch', 'user', 'pickupStaff', 'deliveryStaff'])),
+        ]);
+    }
+
+    /**
+     * Get branch statistics for admin dashboard
+     */
+    public function getBranchStats(Request $request): JsonResponse
+    {
+        // Get the branch owner's branch
+        $userBranch = auth()->user()->branches()->first();
+
+        // Check if user owns a branch
+        if (! $userBranch) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Anda tidak memiliki cabang',
+            ], 403);
+        }
+
+        $branchId = $userBranch->id;
+
+        // Total orders
+        $totalOrders = Order::where('branch_id', $branchId)->count();
+
+        // Orders by status
+        $ordersByStatus = Order::where('branch_id', $branchId)
+            ->select('order_status', DB::raw('count(*) as count'))
+            ->groupBy('order_status')
+            ->get()
+            ->pluck('count', 'order_status');
+
+        // Revenue calculations
+        $revenueToday = Order::where('branch_id', $branchId)
+            ->whereDate('created_at', today())
+            ->where('payment_status', 'paid')
+            ->sum('total_amount');
+
+        $revenueWeek = Order::where('branch_id', $branchId)
+            ->whereBetween('created_at', [now()->startOfWeek(), now()->endOfWeek()])
+            ->where('payment_status', 'paid')
+            ->sum('total_amount');
+
+        $revenueMonth = Order::where('branch_id', $branchId)
+            ->whereMonth('created_at', now()->month)
+            ->whereYear('created_at', now()->year)
+            ->where('payment_status', 'paid')
+            ->sum('total_amount');
+
+        // Recent orders (last 10)
+        $recentOrders = Order::where('branch_id', $branchId)
+            ->with(['user', 'branch'])
+            ->latest()
+            ->limit(10)
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'total_orders' => $totalOrders,
+                'orders_by_status' => [
+                    'pending' => $ordersByStatus['pending'] ?? 0,
+                    'processing' => $ordersByStatus['processing'] ?? 0,
+                    'washing' => $ordersByStatus['washing'] ?? 0,
+                    'ready' => $ordersByStatus['ready'] ?? 0,
+                    'picked_up' => $ordersByStatus['picked_up'] ?? 0,
+                    'delivering' => $ordersByStatus['delivering'] ?? 0,
+                    'completed' => $ordersByStatus['completed'] ?? 0,
+                    'cancelled' => $ordersByStatus['cancelled'] ?? 0,
+                ],
+                'revenue' => [
+                    'today' => (int) $revenueToday,
+                    'week' => (int) $revenueWeek,
+                    'month' => (int) $revenueMonth,
+                ],
+                'recent_orders' => OrderResource::collection($recentOrders),
             ],
         ]);
     }

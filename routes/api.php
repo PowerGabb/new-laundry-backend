@@ -31,10 +31,14 @@ Route::middleware('auth:sanctum')->group(function () {
     });
     Route::post('/profile/update', [AuthController::class, 'updateProfile']);
 
+    // Branch stats (must be before apiResource to avoid conflict)
+    Route::get('/branches/stats', [OrderController::class, 'getBranchStats']);
+
     Route::apiResource('branches', BranchController::class);
     Route::apiResource('orders', OrderController::class)->only(['index', 'store', 'show']);
     Route::get('/orders/stats', [OrderController::class, 'getStats']);
     Route::post('/orders/{order}/choose-delivery-payment', [OrderController::class, 'chooseDeliveryAndPayment']);
+    Route::post('/orders/{order}/update-status', [OrderController::class, 'updateStatus']);
 
     // Banners (admin only)
     Route::get('/banners/all', [BannerController::class, 'all']);
