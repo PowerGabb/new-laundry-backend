@@ -29,9 +29,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', function (Request $request) {
         return $request->user();
     });
+    Route::post('/profile/update', [AuthController::class, 'updateProfile']);
 
     Route::apiResource('branches', BranchController::class);
     Route::apiResource('orders', OrderController::class)->only(['index', 'store', 'show']);
+    Route::get('/orders/stats', [OrderController::class, 'getStats']);
     Route::post('/orders/{order}/choose-delivery-payment', [OrderController::class, 'chooseDeliveryAndPayment']);
 
     // Banners (admin only)

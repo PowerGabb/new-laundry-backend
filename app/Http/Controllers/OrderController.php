@@ -241,4 +241,29 @@ class OrderController extends Controller
 
         return "ORD-{$date}-{$random}";
     }
+
+    /**
+     * Get order statistics for authenticated user.
+     */
+    public function getStats(): JsonResponse
+    {
+        $userId = auth()->id();
+
+        $totalOrders = Order::where('user_id', $userId)->count();
+        $completedOrders = Order::where('user_id', $userId)
+            ->where('order_status', 'completed')
+            ->count();
+        $activeOrders = Order::where('user_id', $userId)
+            ->whereNotIn('order_status', ['completed', 'cancelled'])
+            ->count();
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'total_orders' => $totalOrders,
+                'completed_orders' => $completedOrders,
+                'active_orders' => $activeOrders,
+            ],
+        ]);
+    }
 }

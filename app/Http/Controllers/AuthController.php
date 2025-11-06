@@ -4,10 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\LoginRequest;
 use App\Http\Requests\RegisterRequest;
+use App\Http\Requests\UpdateProfileRequest;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 
 class AuthController extends Controller
 {
@@ -70,6 +72,41 @@ class AuthController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Logout berhasil',
+        ]);
+    }
+
+    /**
+     * Update user profile.
+     */
+    public function updateProfile(UpdateProfileRequest $request): JsonResponse
+    {
+        $user = $request->user();
+        $data = $request->validated();
+
+        // Handle profile image upload
+        if ($request->hasFile('profile_image')) {
+            // Delete old image if exists
+            if ($user->profile_image_url) {
+                $oldPath = str_replace('/storage/', '', $user->profile_image_url);
+                Storage::disk('public')->delete($oldPath);
+            }
+
+            // Upload new image
+            $image = $request->file('profile_image');
+            $filename = time() . '_' . uniqid() . '.' . $image->getClientOriginalExtension();
+            $path = $image->storeAs('profiles', $filename, 'public');
+            $data['profile_image_url'] = '/storage/' . $path;
+
+            // Remove profile_image from data as it's not a database column
+            unset($data['profile_image']);
+        }
+
+        $user->update($data);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Profile berhasil diperbarui',
+            'data' => $user->fresh(),
         ]);
     }
 }
