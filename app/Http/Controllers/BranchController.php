@@ -13,6 +13,7 @@ use App\Services\BitshipService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class BranchController extends Controller
 {
@@ -48,7 +49,7 @@ class BranchController extends Controller
      */
     public function store(StoreBranchRequest $request): JsonResponse
     {
-        $branch = Branch::create([
+        $data = [
             'user_id' => auth()->id(),
             'name' => $request->name,
             'detail_address' => $request->detail_address,
@@ -57,12 +58,21 @@ class BranchController extends Controller
             'phone' => $request->phone,
             'working_hours' => $request->working_hours ?? 10,
             'price_per_kg' => $request->price_per_kg ?? 5000,
-            'image_url' => $request->image_url,
             'pickup_gojek' => $request->pickup_gojek ?? false,
             'pickup_grab' => $request->pickup_grab ?? false,
             'pickup_free' => $request->pickup_free ?? false,
             'pickup_free_schedule' => $request->pickup_free_schedule,
-        ]);
+        ];
+
+        // Handle image upload
+        if ($request->hasFile('image')) {
+            $image = $request->file('image');
+            $filename = time() . '_' . uniqid() . '.' . $image->getClientOriginalExtension();
+            $path = $image->storeAs('branches', $filename, 'public');
+            $data['image_url'] = '/storage/' . $path;
+        }
+
+        $branch = Branch::create($data);
 
         return response()->json([
             'success' => true,
@@ -103,7 +113,24 @@ class BranchController extends Controller
             ], 403);
         }
 
-        $branch->update($request->validated());
+        $data = $request->validated();
+
+        // Handle image upload
+        if ($request->hasFile('image')) {
+            // Delete old image if exists
+            if ($branch->image_url) {
+                $oldPath = str_replace('/storage/', '', $branch->image_url);
+                Storage::disk('public')->delete($oldPath);
+            }
+
+            // Upload new image
+            $image = $request->file('image');
+            $filename = time() . '_' . uniqid() . '.' . $image->getClientOriginalExtension();
+            $path = $image->storeAs('branches', $filename, 'public');
+            $data['image_url'] = '/storage/' . $path;
+        }
+
+        $branch->update($data);
 
         return response()->json([
             'success' => true,
@@ -122,6 +149,12 @@ class BranchController extends Controller
                 'success' => false,
                 'message' => 'Anda tidak memiliki akses ke cabang ini',
             ], 403);
+        }
+
+        // Delete image if exists
+        if ($branch->image_url) {
+            $path = str_replace('/storage/', '', $branch->image_url);
+            Storage::disk('public')->delete($path);
         }
 
         $branch->delete();
