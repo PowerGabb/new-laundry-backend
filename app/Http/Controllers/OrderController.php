@@ -7,6 +7,7 @@ use App\Http\Requests\UpdateOrderStatusRequest;
 use App\Http\Resources\OrderResource;
 use App\Models\Branch;
 use App\Models\Order;
+use App\Services\WhatsAppService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -14,6 +15,8 @@ use Illuminate\Support\Facades\DB;
 
 class OrderController extends Controller
 {
+    public function __construct(protected WhatsAppService $whatsAppService) {}
+
     /**
      * Display a listing of orders for authenticated user.
      */
@@ -113,10 +116,14 @@ class OrderController extends Controller
 
             DB::commit();
 
+            // Send WhatsApp notification to branch
+            $order->load(['branch', 'user']);
+            $this->whatsAppService->notifyBranchNewOrder($order);
+
             return response()->json([
                 'success' => true,
                 'message' => 'Order berhasil dibuat',
-                'data' => new OrderResource($order->load(['branch', 'user'])),
+                'data' => new OrderResource($order),
             ], 201);
 
         } catch (\Exception $e) {
@@ -304,10 +311,14 @@ class OrderController extends Controller
             ]);
         }
 
+        // Send WhatsApp notification to customer
+        $order->load(['branch', 'user', 'pickupStaff', 'deliveryStaff']);
+        $this->whatsAppService->notifyCustomerStatusUpdate($order);
+
         return response()->json([
             'success' => true,
             'message' => 'Status order berhasil diupdate',
-            'data' => new OrderResource($order->load(['branch', 'user', 'pickupStaff', 'deliveryStaff'])),
+            'data' => new OrderResource($order),
         ]);
     }
 

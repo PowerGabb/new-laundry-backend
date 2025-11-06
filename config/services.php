@@ -48,4 +48,8 @@ return [
         'is_3ds' => env('MIDTRANS_IS_3DS', true),
     ],
 
+    'fonnte' => [
+        'api_key' => env('FONNTE_API_KEY'),
+    ],
+
 ];
