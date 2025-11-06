@@ -150,6 +150,88 @@ class OrderController extends Controller
     }
 
     /**
+     * Choose delivery and payment method when order is ready.
+     */
+    public function chooseDeliveryAndPayment(Request $request, Order $order): JsonResponse
+    {
+        // Check if user owns the order
+        if ($order->user_id !== auth()->id()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Anda tidak memiliki akses ke order ini',
+            ], 403);
+        }
+
+        // Check if order is ready
+        if ($order->order_status !== 'ready') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Order belum ready untuk dipilih metode pengambilan',
+            ], 400);
+        }
+
+        $request->validate([
+            'delivery_method' => 'required|in:self_pickup,free_delivery,gojek,grab',
+            'payment_method' => 'required|in:cash,online',
+        ]);
+
+        try {
+            DB::beginTransaction();
+
+            $deliveryMethod = $request->delivery_method;
+            $paymentMethod = $request->payment_method;
+
+            // Determine delivery flags
+            $isDeliveryFree = $deliveryMethod === 'free_delivery';
+            $isDeliveryCourier = in_array($deliveryMethod, ['gojek', 'grab']);
+            $isSelfPickup = $deliveryMethod === 'self_pickup';
+
+            $updateData = [
+                'delivery_method' => $deliveryMethod,
+                'is_delivery_free' => $isDeliveryFree,
+                'is_delivery_courier' => $isDeliveryCourier,
+            ];
+
+            // If cash payment, mark as paid immediately
+            if ($paymentMethod === 'cash') {
+                $updateData['payment_method'] = 'cash';
+                $updateData['payment_status'] = 'paid';
+                $updateData['paid_at'] = now();
+
+                // Update order status based on delivery method
+                if ($isSelfPickup) {
+                    $updateData['order_status'] = 'completed'; // User will pick up directly
+                } else {
+                    $updateData['order_status'] = 'delivering'; // Ready to be delivered
+                }
+            } else {
+                // Online payment - will be paid via Midtrans
+                $updateData['payment_method'] = 'midtrans';
+                $updateData['payment_status'] = 'pending';
+            }
+
+            $order->update($updateData);
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Pilihan berhasil disimpan',
+                'data' => new OrderResource($order->load(['branch', 'user'])),
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal menyimpan pilihan',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
      * Generate unique order number.
      */
     private function generateOrderNumber(): string

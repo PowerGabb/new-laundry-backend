@@ -28,6 +28,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::apiResource('branches', BranchController::class);
     Route::apiResource('orders', OrderController::class)->only(['index', 'store', 'show']);
+    Route::post('/orders/{order}/choose-delivery-payment', [OrderController::class, 'chooseDeliveryAndPayment']);
 
     // Payment routes
     Route::post('/payments/pay/{order}', [PaymentController::class, 'pay']);

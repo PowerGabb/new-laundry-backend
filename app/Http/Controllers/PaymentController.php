@@ -23,10 +23,10 @@ class PaymentController extends Controller
         }
 
         // Check if order status is ready for payment
-        if (! in_array($order->order_status, ['ready', 'completed'])) {
+        if (! in_array($order->order_status, ['ready', 'completed', 'delivering'])) {
             return response()->json([
                 'success' => false,
-                'message' => 'Order belum siap untuk dibayar. Status order harus "ready" atau "completed".',
+                'message' => 'Order belum siap untuk dibayar. Status order harus "ready", "delivering", atau "completed".',
             ], 400);
         }
 
@@ -104,7 +104,7 @@ class PaymentController extends Controller
             'success' => true,
             'message' => 'Snap token berhasil dibuat',
             'data' => [
-                'snap_token' => $result['snap_token'],
+                'snaptoken' => $result['snap_token'],
                 'order_number' => $order->order_number,
                 'total_amount' => $order->total_amount,
             ],
