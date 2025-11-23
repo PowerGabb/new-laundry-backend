@@ -10,8 +10,18 @@ use App\Http\Controllers\PaymentController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
+
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
+
+// Source - https://stackoverflow.com/a
+// Posted by Fhulufhelo Mokhomi, modified by community. See post 'Timeline' for change history
+// Retrieved 2025-11-23, License - CC BY-SA 4.0
+
+Route::get('/foo', function () {
+Artisan::call('storage:link');
+});
+
 
 // Public routes
 Route::get('/branches/nearby', [BranchController::class, 'nearby']);
